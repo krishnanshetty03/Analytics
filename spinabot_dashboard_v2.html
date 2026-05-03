@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spinabot · Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f5f6fa; --white: #ffffff; --border: #e8eaf0; --border-light: #f0f1f6;
+  --text: #0f1320; --muted: #6b7280; --faint: #9ca3af;
+  --green: #16a34a; --green-bg: #dcfce7; --green-soft: #f0fdf4;
+  --orange: #ea580c; --orange-bg: #fff7ed;
+  --blue: #2563eb; --blue-bg: #eff6ff; --blue-soft: #dbeafe;
+  --red: #dc2626; --red-bg: #fef2f2;
+  --purple: #7c3aed; --purple-bg: #f5f3ff;
+  --yellow: #d97706; --yellow-bg: #fffbeb;
+  --teal: #0d9488; --indigo: #4338ca;
+  --sidebar-w: 228px;
+}
+body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; font-size: 13px; line-height: 1.5; }
+
+/* ── SIDEBAR ── */
+.sidebar { width: var(--sidebar-w); background: var(--white); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top:0;left:0;bottom:0; z-index:100; }
+.sidebar-logo { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
+.logo-mark { font-size:15px; font-weight:800; color:var(--text); letter-spacing:-0.02em; }
+.logo-mark em { font-style:normal; color:var(--blue); }
+.logo-sub { font-size:9px; font-weight:600; color:var(--faint); letter-spacing:0.14em; text-transform:uppercase; margin-top:2px; }
+.sidebar-section { padding:14px 12px 2px; }
+.sidebar-section-label { font-size:9px; font-weight:700; color:var(--faint); letter-spacing:0.14em; text-transform:uppercase; padding:0 8px; margin-bottom:4px; }
+.nav-item { display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:7px; cursor:pointer; font-size:13px; font-weight:500; color:var(--muted); transition:all .15s; margin-bottom:1px; border:none; background:none; width:100%; text-align:left; }
+.nav-item:hover { background:var(--bg); color:var(--text); }
+.nav-item.active { background:var(--blue-bg); color:var(--blue); font-weight:600; }
+.nav-item svg { width:15px; height:15px; flex-shrink:0; }
+.sidebar-footer { margin-top:auto; padding:12px 16px; border-top:1px solid var(--border); }
+.confidential { display:inline-block; font-size:9px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--red); border:1px solid currentColor; padding:2px 6px; border-radius:3px; margin-bottom:4px; }
+.footer-meta { font-size:10px; color:var(--faint); line-height:1.6; }
+
+/* ── MAIN ── */
+.main { margin-left:var(--sidebar-w); flex:1; display:flex; flex-direction:column; min-height:100vh; }
+.topbar { height:52px; background:var(--white); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 28px; position:sticky; top:0; z-index:50; }
+.topbar-title { font-size:16px; font-weight:700; letter-spacing:-0.02em; }
+.topbar-title em { font-style:italic; color:var(--blue); font-weight:400; }
+.topbar-right { display:flex; align-items:center; gap:20px; }
+.live-pill { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); font-weight:500; }
+.live-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+.topbar-tag { font-size:11px; color:var(--faint); font-family:'JetBrains Mono',monospace; }
+
+/* ── PAGES ── */
+.page { display:none; padding:24px 28px; }
+.page.active { display:block; animation:fadeIn .25s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── KPI ROW ── */
+.kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+.kpi-row-3 { grid-template-columns:repeat(3,1fr); }
+.kpi-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:20px; cursor:default; transition:box-shadow .2s; animation:fadeIn .3s ease both; }
+.kpi-card:hover { box-shadow:0 4px 20px rgba(0,0,0,.06); }
+.kpi-bar { height:3px; border-radius:2px; margin-bottom:16px; }
+.kpi-num { font-size:34px; font-weight:800; letter-spacing:-0.04em; line-height:1; margin-bottom:5px; }
+.kpi-label { font-size:13px; font-weight:700; margin-bottom:2px; }
+.kpi-sub { font-size:11px; color:var(--faint); margin-bottom:10px; }
+.c-green .kpi-bar { background:var(--green); } .c-green .kpi-num { color:var(--green); }
+.c-orange .kpi-bar { background:var(--orange); } .c-orange .kpi-num { color:var(--orange); }
+.c-blue .kpi-bar { background:var(--blue); } .c-blue .kpi-num { color:var(--blue); }
+.c-red .kpi-bar { background:var(--red); } .c-red .kpi-num { color:var(--red); }
+.c-purple .kpi-bar { background:var(--purple); } .c-purple .kpi-num { color:var(--purple); }
+.c-teal .kpi-bar { background:var(--teal); } .c-teal .kpi-num { color:var(--teal); }
+
+/* ── BADGES ── */
+.badge { display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:600; padding:3px 8px; border-radius:5px; }
+.bg { background:var(--green-bg); color:var(--green); }
+.bo { background:var(--orange-bg); color:var(--orange); }
+.bb { background:var(--blue-bg); color:var(--blue); }
+.br { background:var(--red-bg); color:var(--red); }
+.bp { background:var(--purple-bg); color:var(--purple); }
+.by { background:var(--yellow-bg); color:var(--yellow); }
+.bt { background:#ccfbf1; color:var(--teal); }
+
+/* ── LAYOUT ── */
+.row-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+.row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:16px; }
+.row-21 { display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:16px; }
+.row-12 { display:grid; grid-template-columns:1fr 2fr; gap:16px; margin-bottom:16px; }
+.row-13 { display:grid; grid-template-columns:1fr 3fr; gap:16px; margin-bottom:16px; }
+.row-full { margin-bottom:16px; }
+
+/* ── PANEL ── */
+.panel { background:var(--white); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.panel-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px 0; }
+.panel-title { font-size:11px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:.06em; }
+.panel-meta { font-size:10px; color:var(--faint); font-family:'JetBrains Mono',monospace; }
+.panel-body { padding:16px 20px 20px; }
+
+/* ── SECTION DIVIDER ── */
+.divider { display:flex; align-items:center; gap:12px; margin:24px 0 16px; }
+.divider-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.14em; color:var(--faint); white-space:nowrap; }
+.divider-line { flex:1; height:1px; background:var(--border); }
+
+/* ── PROGRESS ── */
+.inv-layout { display:grid; grid-template-columns:auto 1fr; gap:28px; align-items:center; }
+.donut-wrap { position:relative; width:120px; height:120px; flex-shrink:0; }
+.donut-center { position:absolute; top:50%;left:50%; transform:translate(-50%,-50%); text-align:center; }
+.donut-num { font-size:24px; font-weight:800; color:var(--text); letter-spacing:-.03em; line-height:1; }
+.donut-label { font-size:9px; color:var(--faint); font-weight:600; text-transform:uppercase; letter-spacing:.08em; }
+.prog-item { margin-bottom:12px; }
+.prog-head { display:flex; justify-content:space-between; margin-bottom:5px; }
+.prog-name { font-size:12px; font-weight:600; }
+.prog-frac { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--faint); }
+.prog-bg { height:5px; background:var(--bg); border-radius:3px; overflow:hidden; }
+.prog-fill { height:5px; border-radius:3px; transition:width .8s ease; }
+.fill-g { background:var(--green); } .fill-o { background:var(--orange); } .fill-b { background:var(--blue); } .fill-p { background:var(--purple); }
+
+/* ── TABLE ── */
+.tbl { width:100%; border-collapse:collapse; }
+.tbl thead tr { border-bottom:1px solid var(--border); }
+.tbl th { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); padding:0 14px 10px; text-align:left; }
+.tbl td { padding:10px 14px; font-size:12px; border-bottom:1px solid var(--border-light); color:var(--text); }
+.tbl tbody tr:last-child td { border-bottom:none; }
+.tbl tbody tr:hover td { background:var(--bg); }
+.scroll-wrap { max-height:280px; overflow-y:auto; }
+.scroll-wrap::-webkit-scrollbar { width:3px; } .scroll-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.td-cat { font-size:10px; color:var(--faint); font-weight:500; }
+.td-mono { font-family:'JetBrains Mono',monospace; font-size:11px; }
+
+/* ── STAT ROWS ── */
+.stat-rows { display:flex; flex-direction:column; gap:7px; }
+.stat-row { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:var(--bg); border-radius:7px; }
+.stat-l { font-size:11px; font-weight:600; } .stat-s { font-size:10px; color:var(--faint); margin-top:1px; }
+.stat-r { font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; }
+
+/* ── CHART TABS ── */
+.chart-tabs { display:flex; gap:4px; }
+.ctab { padding:4px 10px; border-radius:5px; font-size:10px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--faint); transition:all .15s; }
+.ctab.active { background:var(--text); color:#fff; border-color:var(--text); }
+
+/* ── YEAR TABS ── */
+.year-tabs { display:flex; gap:4px; }
+.ytab { padding:4px 10px; border-radius:5px; font-size:10px; font-weight:600; cursor:pointer; border:1px solid var(--border); background:var(--white); color:var(--muted); transition:all .15s; }
+.ytab.active { background:var(--blue); color:#fff; border-color:var(--blue); }
+.ytab:hover:not(.active) { background:var(--bg); }
+
+/* ── RECIPIENT BARS ── */
+.rec-rows { display:flex; flex-direction:column; gap:7px; }
+.rec-row { display:flex; align-items:center; gap:10px; }
+.rec-name { font-size:11px; font-weight:500; width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rec-bg { flex:1; height:5px; background:var(--bg); border-radius:3px; }
+.rec-fill { height:5px; background:var(--purple); border-radius:3px; transition:width .8s ease; }
+.rec-val { font-size:10px; font-family:'JetBrains Mono',monospace; color:var(--faint); width:46px; text-align:right; }
+
+/* ── INTEGRATION CHIPS ── */
+.int-row { display:flex; gap:8px; flex-wrap:wrap; }
+.int-chip { display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--bg); border:1px solid var(--border); border-radius:7px; font-size:12px; font-weight:600; color:var(--text); }
+.int-dot { width:7px; height:7px; border-radius:50%; }
+
+/* ── API CHIPS ── */
+.api-grid { display:flex; flex-wrap:wrap; gap:5px; }
+.api-chip { font-size:10px; padding:3px 8px; border-radius:4px; background:var(--blue-bg); color:var(--blue); font-family:'JetBrains Mono',monospace; }
+
+/* ── SAFETY CARDS ── */
+.safety-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.sc { border-radius:10px; padding:14px; }
+.sc:nth-child(1){background:#fff1f2;} .sc:nth-child(2){background:#fffbeb;} .sc:nth-child(3){background:#f5f3ff;}
+.sc-icon { font-size:20px; margin-bottom:7px; }
+.sc-title { font-size:12px; font-weight:700; margin-bottom:4px; }
+.sc:nth-child(1) .sc-title{color:#dc2626;} .sc:nth-child(2) .sc-title{color:#d97706;} .sc:nth-child(3) .sc-title{color:#7c3aed;}
+.sc-desc { font-size:11px; color:var(--muted); line-height:1.5; }
+
+/* ── MATRIX ── */
+.matrix-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
+.matrix-card { background:var(--white); border:1px solid var(--border); border-radius:9px; padding:14px; transition:box-shadow .15s; }
+.matrix-card:hover { box-shadow:0 2px 12px rgba(0,0,0,.06); }
+.matrix-card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.matrix-name { font-size:11px; font-weight:700; }
+.matrix-mo { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); }
+.matrix-yr { font-size:13px; font-weight:700; color:var(--text); margin-bottom:6px; }
+.matrix-yr span { font-size:10px; font-weight:400; color:var(--faint); }
+
+/* ── METRICS ── */
+.metric-card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:20px; }
+.metric-big { font-size:40px; font-weight:800; letter-spacing:-.04em; line-height:1; }
+.timeline { position:relative; padding-left:20px; }
+.tl-item { position:relative; padding:0 0 18px 16px; border-left:2px solid var(--border); }
+.tl-item:last-child { border-left-color:transparent; padding-bottom:0; }
+.tl-dot { position:absolute; left:-5px; top:3px; width:8px; height:8px; border-radius:50%; border:2px solid var(--white); }
+.tl-date { font-size:10px; color:var(--faint); font-family:'JetBrains Mono',monospace; margin-bottom:2px; }
+.tl-text { font-size:12px; font-weight:600; }
+.tl-sub { font-size:11px; color:var(--muted); }
+
+/* ── PAGE HEADER ── */
+.page-header { margin-bottom:20px; }
+.page-h1 { font-size:22px; font-weight:800; letter-spacing:-.03em; margin-bottom:4px; }
+.page-h1 em { font-style:normal; color:var(--blue); }
+.page-sub { font-size:12px; color:var(--faint); }
+</style>
+</head>
+<body>
+
+<!-- ═══ SIDEBAR ═══════════════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">Spin<em>a</em>bot</div>
+    <div class="logo-sub">AI Crew · Analytics</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Analytics</div>
+    <button class="nav-item active" onclick="navigate('overview',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Overview
+    </button>
+    <button class="nav-item" onclick="navigate('costs',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Cost Tracker
+    </button>
+    <button class="nav-item" onclick="navigate('payments',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+      Payments
+    </button>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Intelligence</div>
+    <button class="nav-item" onclick="navigate('recipients',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Recipients
+    </button>
+    <button class="nav-item" onclick="navigate('matrix',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+      Service Matrix
+    </button>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Execution</div>
+    <button class="nav-item" onclick="navigate('infra',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+      Infrastructure
+    </button>
+    <button class="nav-item" onclick="navigate('metrics',this)">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Metrics
+    </button>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="confidential">Confidential</div>
+    <div class="footer-meta">Q2 2026 · Head of Finance<br>spinabot.com</div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ════════════════════════════════════════════════════ -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="topbarTitle">Overview <em>/ Current State</em></div>
+    <div class="topbar-right">
+      <div class="live-pill"><div class="live-dot"></div>Live · Q2 2026</div>
+      <div class="topbar-tag">19 services · 4 sheets</div>
+      <div class="topbar-tag">Q2 2026</div>
+    </div>
+  </div>
+
+  <!-- ════ PAGE: OVERVIEW ════════════════════════════════════════ -->
+  <div class="page active" id="page-overview">
+    <!-- KPI Row -->
+    <div class="kpi-row">
+      <div class="kpi-card c-green"><div class="kpi-bar"></div><div class="kpi-num">$43.8K</div><div class="kpi-label">Planned Annual Budget</div><div class="kpi-sub">Sheet1 · 19 services · 2025</div><span class="badge bg">✓ Budgeted</span></div>
+      <div class="kpi-card c-orange"><div class="kpi-bar"></div><div class="kpi-num">$26.3K</div><div class="kpi-label">Sheet2 Actual Spend</div><div class="kpi-sub">Jan–Dec · 26 services</div><span class="badge bo">↓ Under budget</span></div>
+      <div class="kpi-card c-blue"><div class="kpi-bar"></div><div class="kpi-num">$71.5K</div><div class="kpi-label">Total Wise Payments</div><div class="kpi-sub">2024 + 2025 + 2026</div><span class="badge bb">↗ All delivered</span></div>
+      <div class="kpi-card c-red"><div class="kpi-bar"></div><div class="kpi-num">2×P0</div><div class="kpi-label">Critical Infra Items</div><div class="kpi-sub">New VPC · K8s Subnets</div><span class="badge br">↑ M1 priority</span></div>
+    </div>
+
+    <div class="row-21">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Service Inventory</div><div class="panel-meta">26 total</div></div>
+        <div class="panel-body">
+          <div class="inv-layout">
+            <div class="donut-wrap"><canvas id="ov-donut"></canvas><div class="donut-center"><div class="donut-num">26</div><div class="donut-label">services</div></div></div>
+            <div>
+              <div class="prog-item"><div class="prog-head"><span class="prog-name" style="color:var(--green)">Active Services</span><span class="prog-frac">19 / 26</span></div><div class="prog-bg"><div class="prog-fill fill-g" style="width:73%"></div></div></div>
+              <div class="prog-item"><div class="prog-head"><span class="prog-name" style="color:var(--orange)">Seasonal / Partial</span><span class="prog-frac">7 / 26</span></div><div class="prog-bg"><div class="prog-fill fill-o" style="width:27%"></div></div></div>
+              <div style="margin-top:12px;display:flex;flex-direction:column;gap:5px;">
+                <div style="display:flex;gap:6px;align-items:center;"><span class="badge bg">Active</span><span style="font-size:10px;color:var(--muted)">MongoDB · GCP · SendGrid · Serp · Jira · Hubspot · Notion · Phantom · Unipile · Openrouter · Perplexity · SMTP · Pinecone · NeonDB</span></div>
+                <div style="display:flex;gap:6px;align-items:center;"><span class="badge bo">Seasonal</span><span style="font-size:10px;color:var(--muted)">Apollo API · Hostinger · Misc · Place Holder · Firebase · Sarvam · Convex</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">By Category</div></div>
+        <div class="panel-body"><canvas id="ov-category" height="175"></canvas></div>
+      </div>
+    </div>
+
+    <div class="row-21">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">All Services — Status</div><div class="panel-meta">Q2 2026</div></div>
+        <div class="scroll-wrap">
+          <table class="tbl"><thead><tr><th>Category</th><th>Service</th><th>Monthly</th><th>Annual</th><th>Status</th></tr></thead>
+          <tbody id="ov-services"></tbody></table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Cost Guardrails</div><div class="panel-meta">3 pillars</div></div>
+        <div class="panel-body">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div class="sc" style="background:#fff1f2"><div class="sc-icon">🛡️</div><div class="sc-title" style="color:#dc2626">Budget Variance Alert</div><div class="sc-desc">Sheet1 budget vs actual tracked monthly. Jan saw +$569 overage vs plan.</div></div>
+            <div class="sc" style="background:#fffbeb"><div class="sc-icon">💰</div><div class="sc-title" style="color:#d97706">Per-Service Caps</div><div class="sc-desc">Cost limits enforced. Miscellaneous capped at $500/mo across all sheets.</div></div>
+            <div class="sc" style="background:#f5f3ff"><div class="sc-icon">🔒</div><div class="sc-title" style="color:#7c3aed">Zero-Spend Tracking</div><div class="sc-desc">Services at $0 in Sheet4 flagged for review — 12 services have gaps.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel row-full">
+      <div class="panel-header"><div class="panel-title">Live Integrations & Service Stack</div><div class="panel-meta">All active</div></div>
+      <div class="panel-body">
+        <div class="int-row">
+          <div class="int-chip"><div class="int-dot" style="background:#635bff"></div>Stripe</div>
+          <div class="int-chip"><div class="int-dot" style="background:#4a154b"></div>Slack</div>
+          <div class="int-chip"><div class="int-dot" style="background:#ea4335"></div>Gmail</div>
+          <div class="int-chip"><div class="int-dot" style="background:#336791"></div>PostgreSQL</div>
+          <div class="int-chip"><div class="int-dot" style="background:#4db33d"></div>MongoDB</div>
+          <div class="int-chip"><div class="int-dot" style="background:#4285f4"></div>Google Cloud</div>
+          <div class="int-chip"><div class="int-dot" style="background:#e01563"></div>SendGrid</div>
+          <div class="int-chip"><div class="int-dot" style="background:#f97316"></div>Jira</div>
+          <div class="int-chip"><div class="int-dot" style="background:#000"></div>Notion</div>
+          <div class="int-chip"><div class="int-dot" style="background:#00b4d8"></div>Unipile</div>
+          <div class="int-chip"><div class="int-dot" style="background:#7c3aed"></div>Openrouter</div>
+          <div class="int-chip"><div class="int-dot" style="background:#16a34a"></div>Pinecone</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PAGE: COST TRACKER ═══════════════════════════════════ -->
+  <div class="page" id="page-costs">
+    <div class="page-header"><div class="page-h1">Cost <em>Tracker</em></div><div class="page-sub">Sheet1 budget vs Sheet2, Sheet3, Sheet4 actuals — monthly breakdown</div></div>
+
+    <div class="kpi-row">
+      <div class="kpi-card c-blue"><div class="kpi-bar"></div><div class="kpi-num">$4,219</div><div class="kpi-label">S1 Budget — Jan Peak</div><div class="kpi-sub">Hostinger one-time charge</div><span class="badge bb">Planned</span></div>
+      <div class="kpi-card c-green"><div class="kpi-bar"></div><div class="kpi-num">$3,586</div><div class="kpi-label">S1 Budget — Steady State</div><div class="kpi-sub">Feb–Dec flat rate</div><span class="badge bg">Stable</span></div>
+      <div class="kpi-card c-orange"><div class="kpi-bar"></div><div class="kpi-num">$4,345</div><div class="kpi-label">S2 Peak — April</div><div class="kpi-sub">GCP spike + new services</div><span class="badge bo">Over budget</span></div>
+      <div class="kpi-card c-purple"><div class="kpi-bar"></div><div class="kpi-num">$1,671</div><div class="kpi-label">S4 Peak — December</div><div class="kpi-sub">Ramping actual costs</div><span class="badge bp">Trending ↑</span></div>
+    </div>
+
+    <div class="panel row-full">
+      <div class="panel-header">
+        <div class="panel-title">Monthly Spend — All Sheets Comparison</div>
+        <div class="chart-tabs">
+          <button class="ctab active" onclick="switchCostChart('bar',this)">Bar</button>
+          <button class="ctab" onclick="switchCostChart('line',this)">Line</button>
+        </div>
+      </div>
+      <div class="panel-body"><canvas id="cost-monthly" height="80"></canvas></div>
+    </div>
+
+    <div class="row-2">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Top Services by Annual Cost — Sheet1</div></div>
+        <div class="panel-body"><canvas id="cost-top" height="200"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Budget Delta — Sheet1 vs Sheet2</div><div class="panel-meta">+ over · − under</div></div>
+        <div class="panel-body"><canvas id="cost-delta" height="200"></canvas></div>
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Sheet4 — Actual Spend Trend</div><div class="panel-meta">$530–$1,671/mo</div></div>
+        <div class="panel-body"><canvas id="cost-s4" height="170"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Sheet3 — Top Services (Stable Year)</div></div>
+        <div class="panel-body"><canvas id="cost-s3" height="170"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PAGE: PAYMENTS ════════════════════════════════════════ -->
+  <div class="page" id="page-payments">
+    <div class="page-header"><div class="page-h1">Wise <em>Payments</em></div><div class="page-sub">Sheets 6, 7, 8 — all international transactions 2024–2026</div></div>
+
+    <div class="kpi-row">
+      <div class="kpi-card c-blue"><div class="kpi-bar"></div><div class="kpi-num">$10.8K</div><div class="kpi-label">2024 Total Sent</div><div class="kpi-sub">Sheet8 · 30 transactions</div><span class="badge bg">All Delivered</span></div>
+      <div class="kpi-card c-green"><div class="kpi-bar"></div><div class="kpi-num">$42.3K</div><div class="kpi-label">2025 Total Sent</div><div class="kpi-sub">Sheet7 · 83 transactions</div><span class="badge bg">Most Active</span></div>
+      <div class="kpi-card c-orange"><div class="kpi-bar"></div><div class="kpi-num">$18.4K</div><div class="kpi-label">2026 Total Sent</div><div class="kpi-sub">Sheet6 · 35 txns · YTD</div><span class="badge br">5 Canceled</span></div>
+      <div class="kpi-card c-red"><div class="kpi-bar"></div><div class="kpi-num">$3.48</div><div class="kpi-label">Avg Fee per Txn</div><div class="kpi-sub">Mix of $1.99 & $3.99</div><span class="badge by">Fee tracked</span></div>
+    </div>
+
+    <div class="row-3">
+      <div class="panel"><div class="panel-header"><div class="panel-title">Year-over-Year Volume</div></div><div class="panel-body"><canvas id="pay-yoy" height="160"></canvas></div></div>
+      <div class="panel"><div class="panel-header"><div class="panel-title">Payment Method Split</div></div><div class="panel-body"><canvas id="pay-method" height="160"></canvas></div></div>
+      <div class="panel"><div class="panel-header"><div class="panel-title">Delivery Status</div></div><div class="panel-body"><canvas id="pay-status" height="160"></canvas></div></div>
+    </div>
+
+    <div class="row-12">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Top Recipients</div></div>
+        <div class="panel-body"><div class="rec-rows" id="pay-recipients"></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Transaction Records</div>
+          <div class="year-tabs">
+            <button class="ytab active" onclick="showTxns('2026',this)">2026</button>
+            <button class="ytab" onclick="showTxns('2025',this)">2025</button>
+            <button class="ytab" onclick="showTxns('2024',this)">2024</button>
+          </div>
+        </div>
+        <div class="scroll-wrap" style="max-height:260px;">
+          <table class="tbl" id="pay-txn-table"><thead><tr><th>Reference</th><th>Recipient</th><th>Sent</th><th>Method</th><th>Status</th></tr></thead><tbody id="pay-txn-body"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PAGE: RECIPIENTS ══════════════════════════════════════ -->
+  <div class="page" id="page-recipients">
+    <div class="page-header"><div class="page-h1">Payment <em>Recipients</em></div><div class="page-sub">All payees across Sheet6, Sheet7, Sheet8 — 2024 to 2026</div></div>
+
+    <div class="kpi-row kpi-row-3">
+      <div class="kpi-card c-purple"><div class="kpi-bar"></div><div class="kpi-num">38</div><div class="kpi-label">Unique Recipients</div><div class="kpi-sub">Across all 3 years</div><span class="badge bp">All tracked</span></div>
+      <div class="kpi-card c-green"><div class="kpi-bar"></div><div class="kpi-num">$18.2K</div><div class="kpi-label">Top Recipient Total</div><div class="kpi-sub">Venkata Bhaswanth Dev Vajrapu</div><span class="badge bg">Most paid</span></div>
+      <div class="kpi-card c-blue"><div class="kpi-bar"></div><div class="kpi-num">UPI</div><div class="kpi-label">Most Used Method</div><div class="kpi-sub">52% of all transactions</div><span class="badge bb">India-based</span></div>
+    </div>
+
+    <div class="row-2">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Top 10 Recipients by Amount</div></div>
+        <div class="panel-body"><canvas id="rec-bar" height="220"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Payment Frequency by Recipient</div></div>
+        <div class="panel-body"><canvas id="rec-freq" height="220"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel row-full">
+      <div class="panel-header"><div class="panel-title">All Recipients — Full Detail</div></div>
+      <div class="scroll-wrap" style="max-height:320px;">
+        <table class="tbl"><thead><tr><th>#</th><th>Recipient</th><th>Total Received</th><th>No. of Txns</th><th>Avg Txn</th><th>Primary Method</th><th>Years Active</th></tr></thead>
+        <tbody id="rec-table"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PAGE: SERVICE MATRIX ══════════════════════════════════ -->
+  <div class="page" id="page-matrix">
+    <div class="page-header"><div class="page-h1">Service <em>Matrix</em></div><div class="page-sub">All services across all sheets — cost per month &amp; annual totals</div></div>
+
+    <div class="row-2">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Cost Distribution by Category</div></div>
+        <div class="panel-body"><canvas id="mx-donut" height="200"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Month-by-Month Sheet1 Budget</div></div>
+        <div class="panel-body"><canvas id="mx-line" height="200"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel row-full">
+      <div class="panel-header"><div class="panel-title">All Services — Complete Cost Breakdown</div><div class="panel-meta">Sheet1 Budget Data</div></div>
+      <div class="panel-body">
+        <div class="matrix-grid" id="matrix-cards"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PAGE: INFRASTRUCTURE ══════════════════════════════════ -->
+  <div class="page" id="page-infra">
+    <div class="page-header"><div class="page-h1">GCP <em>Infrastructure</em></div><div class="page-sub">Sheet5 — Google Cloud APIs, Kubernetes network config, VPC setup</div></div>
+
+    <div class="kpi-row kpi-row-3">
+      <div class="kpi-card c-blue"><div class="kpi-bar"></div><div class="kpi-num">11</div><div class="kpi-label">Enabled GCP APIs</div><div class="kpi-sub">All required for production</div><span class="badge bb">All active</span></div>
+      <div class="kpi-card c-green"><div class="kpi-bar"></div><div class="kpi-num">5,632</div><div class="kpi-label">Total IP Capacity</div><div class="kpi-sub">4096 + 1024 + 512</div><span class="badge bg">3 subnets</span></div>
+      <div class="kpi-card c-orange"><div class="kpi-bar"></div><div class="kpi-num">$24.50</div><div class="kpi-label">New VPC Cost</div><div class="kpi-sub">Existing VPC = $0</div><span class="badge bo">M1 priority</span></div>
+    </div>
+
+    <div class="row-2">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Kubernetes Network Config</div></div>
+        <div class="panel-body">
+          <canvas id="infra-chart" height="140"></canvas>
+          <div style="margin-top:14px;">
+            <div class="stat-rows">
+              <div class="stat-row"><div><div class="stat-l">Primary Node Subnet (10.0.0.0/20)</div><div class="stat-s">app_level · env-vpc</div></div><div class="stat-r" style="color:var(--blue)">4,096 IPs</div></div>
+              <div class="stat-row"><div><div class="stat-l">Secondary Pods Subnet (10.0.16.0/22)</div><div class="stat-s">cluster level</div></div><div class="stat-r" style="color:var(--orange)">1,024 IPs</div></div>
+              <div class="stat-row"><div><div class="stat-l">Service Pods Subnet (10.0.32.0/24)</div><div class="stat-s">node level</div></div><div class="stat-r" style="color:var(--red)">512 IPs</div></div>
+              <div class="stat-row"><div><div class="stat-l">Existing VPC Network</div><div class="stat-s">env-vpc (10.0.0.0)</div></div><div class="stat-r" style="color:var(--green)">$0</div></div>
+              <div class="stat-row"><div><div class="stat-l">New VPC Network</div><div class="stat-s">network cost per month</div></div><div class="stat-r" style="color:var(--orange)">$24.50</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Enabled Google APIs (11)</div></div>
+        <div class="panel-body">
+          <div class="api-grid" style="margin-bottom:16px;">
+            <span class="api-chip">compute</span><span class="api-chip">container</span><span class="api-chip">iam</span><span class="api-chip">cloudresourcemanager</span><span class="api-chip">serviceusage</span><span class="api-chip">logging</span><span class="api-chip">monitoring</span><span class="api-chip">artifactregistry</span><span class="api-chip">secretmanager</span><span class="api-chip">dns</span><span class="api-chip">certificatemanager</span>
+          </div>
+          <table class="tbl" style="font-size:11px;">
+            <thead><tr><th>API</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td class="td-mono">compute</td><td>Firewalls · Engine · VMs · Load Balancer · NAT</td></tr>
+              <tr><td class="td-mono">container</td><td>GKE API</td></tr>
+              <tr><td class="td-mono">iam / cloudresourcemanager</td><td>Terraform Service Accounts</td></tr>
+              <tr><td class="td-mono">logging / monitoring</td><td>Splunk · Centralized Logging</td></tr>
+              <tr><td class="td-mono">artifactregistry / secretmanager</td><td>Save images in GAR · Pipeline</td></tr>
+              <tr><td class="td-mono">dns</td><td>Cluster level (API enable — not needed)</td></tr>
+              <tr><td class="td-mono">certificatemanager</td><td>Cluster level</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PAGE: METRICS ════════════════════════════════════════ -->
+  <div class="page" id="page-metrics">
+    <div class="page-header"><div class="page-h1">Key <em>Metrics</em></div><div class="page-sub">Summary stats, trends, and financial performance across all sheets</div></div>
+
+    <div class="kpi-row">
+      <div class="kpi-card c-green"><div class="kpi-bar"></div><div class="kpi-num">40%</div><div class="kpi-label">S2 Under Budget</div><div class="kpi-sub">vs S1 planned spend</div><span class="badge bg">Savings</span></div>
+      <div class="kpi-card c-blue"><div class="kpi-bar"></div><div class="kpi-num">148</div><div class="kpi-label">Total Transactions</div><div class="kpi-sub">Sheets 6 + 7 + 8 combined</div><span class="badge bb">Wise payments</span></div>
+      <div class="kpi-card c-orange"><div class="kpi-bar"></div><div class="kpi-num">82%</div><div class="kpi-label">Delivery Rate</div><div class="kpi-sub">18% canceled</div><span class="badge bo">2026 data</span></div>
+      <div class="kpi-card c-purple"><div class="kpi-bar"></div><div class="kpi-num">$50.4K</div><div class="kpi-label">S3 Annual Spend</div><div class="kpi-sub">Stable at $4,203/mo flat</div><span class="badge bp">Most stable</span></div>
+    </div>
+
+    <div class="row-2">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Annual Cost Comparison — All Sheets</div></div>
+        <div class="panel-body"><canvas id="met-annual" height="180"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Wise Payments — Monthly Trend 2025 vs 2026</div></div>
+        <div class="panel-body"><canvas id="met-wise" height="180"></canvas></div>
+      </div>
+    </div>
+
+    <div class="row-13">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Key Milestones</div></div>
+        <div class="panel-body">
+          <div class="timeline">
+            <div class="tl-item"><div class="tl-dot" style="background:var(--green)"></div><div class="tl-date">2024 Q1</div><div class="tl-text">First Wise payments</div><div class="tl-sub">30 txns · $10.8K</div></div>
+            <div class="tl-item"><div class="tl-dot" style="background:var(--blue)"></div><div class="tl-date">2025 Q1–Q4</div><div class="tl-text">Peak payment activity</div><div class="tl-sub">83 txns · $42.3K · highest year</div></div>
+            <div class="tl-item"><div class="tl-dot" style="background:var(--orange)"></div><div class="tl-date">2025 Q2</div><div class="tl-text">Sheet3 stabilises</div><div class="tl-sub">$4,203/mo flat all year</div></div>
+            <div class="tl-item"><div class="tl-dot" style="background:var(--purple)"></div><div class="tl-date">2026 Q1</div><div class="tl-text">Sheet4 ramp begins</div><div class="tl-sub">$530 → $1,671/mo by Dec</div></div>
+            <div class="tl-item"><div class="tl-dot" style="background:var(--red)"></div><div class="tl-date">2026 Q2</div><div class="tl-text">GCP infra expansion</div><div class="tl-sub">New VPC · 11 APIs · K8s setup</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Month-by-Month Summary Table</div></div>
+        <div class="scroll-wrap">
+          <table class="tbl">
+            <thead><tr><th>Month</th><th>S1 Budget</th><th>S2 Actual</th><th>S3 Actual</th><th>S4 Actual</th><th>Delta S1↔S2</th></tr></thead>
+            <tbody id="met-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── SHARED DATA ────────────────────────────────────────────────────────────────
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const S1 = [4218.61,3649,3641,3586,3586,3586,3586,3586,3586,3586,3586,3586];
+const S2 = [2307.5,4013,3696,4345,1150,1150,1150,1150,1150,1150,1150,1150];
+const S3 = [4205.63,4203,4203,4203,4203,4203,4203,4203,4203,4203,4203,4203];
+const S4 = [530,530,1431,932,1123,1369,914,904,1190,1578,1594,1671];
+
+Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#6b7280';
+Chart.defaults.borderColor = '#e8eaf0';
+const gridOpts = { grid:{ color:'#f0f1f6' }, border:{ display:false }, ticks:{ padding:4 } };
+const noGrid = { grid:{ display:false }, border:{ display:false } };
+
+// ── NAVIGATION ─────────────────────────────────────────────────────────────────
+const titles = {
+  overview: 'Overview <em>/ Current State</em>',
+  costs: 'Cost Tracker <em>/ Sheets 1–4</em>',
+  payments: 'Wise Payments <em>/ Sheets 6–8</em>',
+  recipients: 'Recipients <em>/ Intelligence</em>',
+  matrix: 'Service Matrix <em>/ All Services</em>',
+  infra: 'Infrastructure <em>/ Sheet5 GCP</em>',
+  metrics: 'Metrics <em>/ Key Analytics</em>',
+};
+const inited = {};
+
+function navigate(page, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('topbarTitle').innerHTML = titles[page];
+  if (!inited[page]) { initPage(page); inited[page] = true; }
+}
+
+function initPage(page) {
+  if (page === 'costs') initCosts();
+  else if (page === 'payments') initPayments();
+  else if (page === 'recipients') initRecipients();
+  else if (page === 'matrix') initMatrix();
+  else if (page === 'infra') initInfra();
+  else if (page === 'metrics') initMetrics();
+}
+
+// ── OVERVIEW INIT (runs immediately) ──────────────────────────────────────────
+(function initOverview() {
+  new Chart(document.getElementById('ov-donut'), {
+    type:'doughnut', data:{ labels:['Active','Seasonal'], datasets:[{ data:[19,7], backgroundColor:['#16a34a','#ea580c'], borderWidth:3, borderColor:'#fff', hoverOffset:4 }] },
+    options:{ cutout:'72%', plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c=>` ${c.label}: ${c.raw}` } } } }
+  });
+  new Chart(document.getElementById('ov-category'), {
+    type:'bar', data:{ labels:['Infra','Email/Comm','AI/ML','Database','Dev Tools','Monitoring'], datasets:[
+      { label:'Active', data:[3,3,4,3,2,2], backgroundColor:'#16a34a', borderRadius:4, barPercentage:.6 },
+      { label:'Seasonal', data:[1,0,2,1,1,1], backgroundColor:'#ea580c', borderRadius:4, barPercentage:.6 }
+    ]},
+    options:{ responsive:true, plugins:{ legend:{ position:'top', labels:{ boxWidth:8, usePointStyle:true, pointStyle:'circle', padding:10 } } }, scales:{ x:noGrid, y:{ ...gridOpts, ticks:{ stepSize:1 } } } }
+  });
+  const svcs = [['Infra','cloud.google.com',300,3605,'Active'],['Database','cloud.mongodb.com',100,1209,'Active'],['Email','SendGrid',500,6000,'Active'],['Email','SMPT 2 GO',300,3600,'Active'],['Database','Neon DB',500,6000,'Active'],['AI/ML','Openrouter',200,2400,'Active'],['AI/ML','Perplexity API',200,2400,'Active'],['Monitoring','Serp API',150,1800,'Active'],['Dev Tools','Jira',100,1200,'Active'],['Dev Tools','Hubspot',90,1080,'Active'],['AI/ML','Phantombuster',55,660,'Active'],['Infra','Unipile',100,1200,'Active'],['Scraping','Scrapping Dog',90,1080,'Active'],['Database','Pinecone',50,600,'Active'],['Productivity','Notion',50,600,'Active'],['Infra','misc',500,6000,'Active'],['Infra','Place Holder',300,3505,'Seasonal'],['AI/ML','Apollo Api',0,165,'Seasonal'],['Infra','Hostinger',0,367,'Seasonal']];
+  const b = document.getElementById('ov-services');
+  svcs.forEach(([cat,svc,mo,yr,st]) => { b.innerHTML += `<tr><td class="td-cat">${cat}</td><td style="font-weight:600">${svc}</td><td class="td-mono">$${mo}</td><td class="td-mono">$${yr.toLocaleString()}</td><td><span class="badge ${st==='Active'?'bg':'bo'}">${st}</span></td></tr>`; });
+})();
+
+// ── COSTS PAGE ─────────────────────────────────────────────────────────────────
+let costChart;
+function initCosts() {
+  buildCostChart('bar');
+  const tops = [['SendGrid',6000],['Neon DB',6000],['Misc',6000],['GCP',3605],['SMTP 2 GO',3600],['Place Holder',3505],['Openrouter',2400],['Perplexity',2400]];
+  new Chart(document.getElementById('cost-top'), {
+    type:'bar', data:{ labels:tops.map(x=>x[0]), datasets:[{ label:'Annual', data:tops.map(x=>x[1]), backgroundColor:['#2563eb26','#16a34a26','#ea580c26','#7c3aed26','#d9770626','#0d948826','#dc262626','#4338ca26'], borderColor:['#2563eb','#16a34a','#ea580c','#7c3aed','#d97706','#0d9488','#dc2626','#4338ca'], borderWidth:1.5, borderRadius:5 }] },
+    options:{ indexAxis:'y', responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c=>` $${c.raw.toLocaleString()}/yr` } } }, scales:{ x:{ ...gridOpts, ticks:{ ...gridOpts.ticks, callback:v=>'$'+v.toLocaleString() } }, y:noGrid } }
+  });
+  const deltas = S1.map((v,i)=>+(S2[i]-v).toFixed(0));
+  new Chart(document.getElementById('cost-delta'), {
+    type:'bar', data:{ labels:MONTHS, datasets:[{ label:'Δ', data:deltas, backgroundColor:deltas.map(d=>d>0?'rgba(220,38,38,.18)':'rgba(22,163,74,.18)'), borderColor:deltas.map(d=>d>0?'#dc2626':'#16a34a'), borderWidth:1.5, borderRadius:4 }] },
+    options:{ responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c=>` ${c.raw>0?'Over':'Under'} $${Math.abs(c.raw)}` } } }, scales:{ x:noGrid, y:{ ...gridOpts, ticks:{ ...gridOpts.ticks, callback:v=>'$'+v } } } }
+  });
+  new Chart(document.getElementById('cost-s4'), {
+    type:'line', data:{ labels:MONTHS, datasets:[{ label:'S4', data:S4, borderColor:'#7c3aed', backgroundColor:'rgba(124,58,237,.06)', pointBackgroundColor:'#7c3aed', pointRadius:4, tension:.35, fill:true, borderWidth:2 }] },
+    options:{ responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c=>` $${c.raw.toLocaleString()}` } } }, scales:{ x:noGrid, y:{ ...gridOpts, ticks:{ ...gridOpts.ticks, callback:v=>'$'+v } } } }
+  });
+  const s3t = [['GCP',10805],['SendGrid+Misc',12000],['Sarvam',6000],['Hostinger',4408],['Firebase',4284],['Convex',3600],['Cluster',2400]];
+  new Chart(document.getElementById('cost-s3'), {
+    type:'bar', data:{ labels:s3t.map(x=>x[0]), datasets:[{ label:'Annual', data:s3t.map(x=>x[1]), backgroundColor:'rgba(234,88,12,.15)', borderColor:'#ea580c', borderWidth:1.5, borderRadius:5 }] },
+    options:{ indexAxis:'y', responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c=>` $${c.raw.toLocaleString()}/yr` } } }, scales:{ x:{ ...gridOpts, ticks:{ ...gridOpts.ticks, callback:v=>'$'+v.toLocaleString() } }, y:noGrid } }
+  });
+}
+function buildCostChart(type) {
+  if (costChart) costChart.destroy();
+  costChart = new Chart(document.getElementById('cost-monthly'), {
+    type, data:{ labels:MONTHS, datasets:[
+      { label:'S1 Budget', data:S1, backgroundColor:type==='bar'?'rgba(37,99,235,.15)':'transparent', borderColor:'#2563eb', borderWidth:2, borderRadius:type==='bar'?4:0, pointRadius:type==='line'?4:0, tension:.3, fill:type==='line' },
+      { label:'S2 Actual', data:S2, backgroundColor:type==='bar'?'rgba(22,163,74,.15)':'transparent', borderColor:'#16a34a', borderWidth:2, borderRadius:type==='bar'?4:0, pointRadius:type==='line'?4:0, tension:.3, fill:type==='line' },
+      { label:'S3 Actual', data:S3, backgroundColor:type==='bar'?'rgba(234,88,12,.15)':'transparent', borderColor:'#ea580c', borderWidth:2, borderRadius:type==='bar'?4:0, pointRadius:type==='line'?4:0, tension:.3, fill:type==='line' },
+      { label:'S4 Actual', data:S4, backgroundColor:type==='bar'?'rgba(124,58,237,.15)':'transparent', borderColor:'#7c3aed', borderWidth:2, borderRadius:type==='bar'?4:0, pointRadius:type==='line'?4:0, tension:.3, fill:type==='line' },
+    ]},
+    options:{ responsive:true, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ position:'top', labels:{ boxWidth:8, usePointStyle:true, pointStyle:'circle', padding:14 } }, tooltip:{ callbacks:{ label:c=>` ${c.dataset.label}: $${c.raw.toLocaleString()}` } } }, scales:{ x:noGrid, y:{ ...gridOpts, ticks:{ ...gridOpts.ticks, callback:v=>'$'+v.toLocaleString() } } } }
+  });
+}
+function switchCostChart(type, btn) {
+  document.querySelectorAll('.ctab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  buildCostChart(type);
+}
+
+// ── PAYMENTS PAGE ──────────────────────────────────────────────────────────────
+const TXNS = {
+  '2026':[{ref:'R26377504',name:'ANANYA SINGH',amt:106.82,method:'UPI',status:'Delivered'},{ref:'R20388559',name:'V. Krishnan Devathi',amt:273.68,method:'Bank Deposit',status:'Delivered'},{ref:'R39296768',name:'V. Bhaswanth Vajrapu',amt:293.58,method:'UPI',status:'Delivered'},{ref:'R13656008',name:'V. Bhaswanth Vajrapu',amt:1089.21,method:'UPI',status:'Delivered'},{ref:'R26281576',name:'V. Bhaswanth Vajrapu',amt:798.34,method:'UPI',status:'Delivered'},{ref:'R34304158',name:'V. Bhaswanth Vajrapu',amt:1093.62,method:'UPI',status:'Canceled'},{ref:'R33176046',name:'V. Bhaswanth Vajrapu',amt:1093.62,method:'UPI',status:'Canceled'},{ref:'R12681557',name:'V. Bhaswanth Vajrapu',amt:1094.58,method:'UPI',status:'Delivered'},{ref:'R17490605',name:'Jagannadha Varma',amt:422.25,method:'Bank Deposit',status:'Delivered'},{ref:'R14016796',name:'Srikanth Ayala.',amt:140.33,method:'UPI',status:'Delivered'}],
+  '2025':[{ref:'R32354258',name:'Alampur Ranjith S.',amt:169.69,method:'UPI',status:'Delivered'},{ref:'R33754841',name:'V. Bhaswanth',amt:168.20,method:'UPI',status:'Delivered'},{ref:'R41453623',name:'V. Bhaswanth',amt:168.36,method:'UPI',status:'Canceled'},{ref:'R16816334',name:'V. Bhaswanth',amt:1070.79,method:'UPI',status:'Delivered'},{ref:'R28086279',name:'Sri Janakiram Pav.',amt:453.78,method:'Bank Deposit',status:'Delivered'},{ref:'R23498500',name:'padmavathi vadia',amt:2272.73,method:'Bank Deposit',status:'Delivered'},{ref:'R56810981',name:'padmavathi vadia',amt:2000.00,method:'Bank Deposit',status:'Delivered'},{ref:'R82965285',name:'Ankit Shrikrishna',amt:94.85,method:'Bank Deposit',status:'Delivered'},{ref:'R29940196',name:'Girdhar Thirsanth',amt:279.12,method:'Bank Deposit',status:'Delivered'},{ref:'R94531597',name:'Ankit Shrikrishna',amt:500.00,method:'Bank Deposit',status:'Delivered'}],
+  '2024':[{ref:'R78723202',name:'Jagannadha Varma',amt:130.46,method:'Bank Deposit',status:'Delivered'},{ref:'R82922788',name:'Sriram Vytla',amt:83.02,method:'Bank Deposit',status:'Delivered'},{ref:'R64607814',name:'Thien Ngoc Nguye',amt:500.00,method:'Bank Deposit',status:'Delivered'},{ref:'R38001428',name:'Thien Ngoc Nguye',amt:1000.00,method:'Bank Deposit',status:'Delivered'},{ref:'R21883927',name:'Hemalatha Thatig',amt:242.75,method:'Bank Deposit',status:'Delivered'},{ref:'R35438586',name:'Dhana Laxmi Sasa',amt:422.50,method:'Bank Deposit',status:'Delivered'},{ref:'R48329030',name:'Mahesh Remodel',amt:849.31,method:'Bank Deposit',status:'Delivered'},{ref:'R88622137',name:'Hemalatha Thatig',amt:242.75,method:'Bank Deposit',status:'Delivered'},{ref:'R43674502',name:'Mahesh Remodel',amt:182.55,method:'Bank Deposit',status:'Delivered'},{ref:'R89870994',name:'Dhana Laxmi Sasa',amt:425.95,method:'Bank Deposit',status:'Delivered'}]
+};
+
+function initPayments() {
+  new Chart(document.getElementById('pay-yoy'), {
+    type:'bar', data:{ labels:['2024','2025','2026'], datasets:[{ data:[10800,42300,18400], backgroundColor:['rgba(37,99,235,.2)','rgba(22,163,74,.2)','rgba(234,88,12,.2)'], borderColor:['#2563eb','#16a34a','#ea580c'], borderWidth:1.5, borderRadius:6 }] },
+    options:{ responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c=>` $${c.raw.toLocaleString()}` } } }, scales:{ x:noGrid, y:{ ...gridOpts, ticks:{ ...gridOpts.ticks, callback:v=>'$'+v.toLocaleString() } } } }
+  });
+  new Chart(document.getElementById('pay-method'), {
+    type:'doughnut', data:{ labels:['UPI','Bank Deposit','Bank Acct.','Apple Pay'], datasets:[{ data:[52,42,4,2], backgroundColor:['#2563eb','#16a34a','#d97706','#dc2626'], borderWidth:3, borderColor:'#fff', hoverOffset:6 }] },
+    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:7, usePointStyle:true, pointStyle:'circle', padding:10, font:{ size:10 } } } } }
+  });
+  new Chart(document.getElementById('pay-status'), {
+    type:'doughnut', data:{ labels:['Delivered','Canceled'], datasets:[{ data:[82,18], backgroundColor:['#16a34a','#dc2626'], borderWidth:3, borderColor:'#fff', hoverOffset:6 }] },
+    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:7, usePointStyle:true, pointStyle:'circle', padding:10 } } } }
+  });
+  const recs = [['Venkata Bhaswanth Dev Vajrapu',18200],['Venkata Krishnan Devathi',9800],['Ankit Shrikrishna',8200],['Sri Janakiram Pavan',7800],['padmavathi vadia',6200],['Thien Ngoc Nguye',5500],['Mahesh Remodel',4800],['Dhana Laxmi Sasa',4200],['Hemalatha Thatig',3100],['Ramya Vasamsett',2800]];
+  const max = recs[0][1];
+  const rc = document.getElementById('pay-recipients');
+  recs.forEach(([n,v]) => { rc.innerHTML += `<div class="rec-row"><div class="rec-name">${n}</div><div class="rec-bg"><div class="rec-fill" style="width:${(v/max*100).toFixed(1)}%"></div></div><div class="rec-val">$${(v/1000).toFixed(1)}K</div></div>`; });
+  showTxns('2026', document.querySelector('.ytab'));
+}
+function showTxns(year, btn) {
+  document.querySelectorAll('.ytab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const b = document.getElementById('pay-txn-body');
+  b.innerHTML = '';
+  TXNS[year].forEach(t => { b.innerHTML += `<tr><td class="td-mono" style="font-size:10px;color:var(--faint)">${t.ref}</td><td style="font-weight:600">${t.name}</td><td class="td-mono">$${t.amt.toFixed(2)}</td><td style="font-size:10px;color:var(--faint)">${t.method}</td><td><span class="badge ${t.status==='Delivered'?'bg':'br'}">${t.status}</span></td></tr>`; });
+}
+
+// ── RECIPIENTS PAGE ────────────────────────────────────────────────────────────
+function initRecipients() {
+  const recs = [['Venkata Bhaswanth Dev Vajrapu',18200,12,'UPI','2025–2026'],['Venkata Krishnan Devathi',9800,8,'Bank Deposit','2025–2026'],['Ankit Shrikrishna',8200,18,'Bank Deposit','2025'],['Sri Janakiram Pavan',7800,9,'Bank Deposit','2025–2026'],['padmavathi vadia',6200,8,'Bank Deposit','2025'],['Thien Ngoc Nguye',5500,6,'Bank Deposit','2024–2025'],['Mahesh Remodel',4800,10,'Bank Deposit','2024'],['Dhana Laxmi Sasa',4200,9,'Bank Deposit','2024'],['Hemalatha Thatig',3100,6,'Bank Deposit','2024'],['Ramya Vasamsett',2800,5,'Bank Deposit','2025']];
+  new Chart(document.getElementById('rec-bar'), {
+    type:'bar', data:{ labels:recs.map(r=>r[0].split(' ').slice(0,2).join(' ')), datasets:[{ label:'Total ($)', data:recs.map(r=>r[1]), backgroundColor:'rgba(124,58,237,.2)', borderColor:'#7c3aed', borderWidth:1.5, borderRadius:5 }] },
+    options:{ indexAxis:'y', responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c=>` $${c.raw.toLocaleString()}` } } }, scales:{ x:{ ...gridOpts, ticks:{ ...gridOpts.ticks, callback:v=>'$'+v.toLocaleString() } }, y:{ ...noGrid, ticks:{ font:{ size:10 } } } } }
+  });
+  new Chart(document.getElementById('rec-freq'), {
+    type:'bar', data:{ labels:recs.map(r=>r[0].split(' ').slice(0,2).join(' ')), datasets:[{ label:'# Transactions', data:recs.map(r=>r[2]), backgroundColor:'rgba(37,99,235,.2)', borderColor:'#2563eb', borderWidth:1.5, borderRadius:5 }] },
+    options:{ indexAxis:'y', responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c=>` ${c.raw} transactions` } } }, scales:{ x:{ ...gridOpts, ticks:{ stepSize:2 } }, y:{ ...noGrid, ticks:{ font:{ size:10 } } } } }
+  });
+  const t = document.getElementById('rec-table');
+  recs.forEach(([n,tot,cnt,method,years],i) => {
+    t.innerHTML += `<tr><td class="td-mono" style="color:var(--faint)">${i+1}</td><td style="font-weight:600">${n}</td><td class="td-mono">$${tot.toLocaleString()}</td><td class="td-mono">${cnt}</td><td class="td-mono">$${(tot/cnt).toFixed(0)}</td><td style="font-size:11px;color:var(--muted)">${method}</td><td><span class="badge bb">${years}</span></td></tr>`;
+  });
+}
+
+// ── MATRIX PAGE ────────────────────────────────────────────────────────────────
+function initMatrix() {
+  const cats = { 'Infrastructure':6000+3600+3505+1200,'Email':6000+3600,'AI/ML':2400+2400+660+165,'Database':6000+1209+600,'Dev Tools':1200+1080,'Monitoring':1800+1080,'Productivity':600 };
+  new Chart(document.getElementById('mx-donut'), {
+    type:'doughnut', data:{ labels:Object.keys(cats), datasets:[{ data:Object.values(cats), backgroundColor:['#2563eb','#16a34a','#ea580c','#7c3aed','#d97706','#0d9488','#dc2626'], borderWidth:3, borderColor:'#fff', hoverOffset:6 }] },
+    options:{ cutout:'60%', plugins:{ legend:{ position:'right', labels:{ boxWidth:8, usePointStyle:true, pointStyle:'circle', padding:10, font:{ size:10 } } }, tooltip:{ callbacks:{ label:c=>` ${c.label}: $${c.raw.toLocaleString()}/yr` } } } }
+  });
+  new Chart(document.getElementById('mx-line'), {
+    type:'line', data:{ labels:MONTHS, datasets:[{ label:'S1 Budget', data:S1, borderColor:'#2563eb', backgroundColor:'rgba(37,99,235,.06)', pointBackgroundColor:'#2563eb', pointRadius:4, tension:.35, fill:true, borderWidth:2 }] },
+    options:{ responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c=>` $${c.raw.toLocaleString()}` } } }, scales:{ x:noGrid, y:{ ...gridOpts, ticks:{ ...gridOpts.ticks, callback:v=>'$'+v.toLocaleString() } } } }
+  });
+  const svcs = [['cloud.google.com',300.38,3604,'Infra','Active','#4285f4'],['cloud.mongodb.com',100,1209,'Database','Active','#4db33d'],['SendGrid',500,6000,'Email','Active','#e01563'],['SMPT 2 GO',300,3600,'Email','Active','#666'],['Neon DB',500,6000,'Database','Active','#00e599'],['Openrouter',200,2400,'AI/ML','Active','#7c3aed'],['Perplexity API',200,2400,'AI/ML','Active','#0ea5e9'],['Serp API',150,1800,'Monitoring','Active','#f59e0b'],['Jira - Atlassian',100,1200,'Dev Tools','Active','#0052cc'],['Hubspot',90,1080,'Dev Tools','Active','#ff7a59'],['Phantombuster',55,660,'AI/ML','Active','#8b5cf6'],['Unipile',100,1200,'Infra','Active','#00b4d8'],['Scrapping Dog',90,1080,'Monitoring','Active','#6366f1'],['Pinecone',50,600,'Database','Active','#6cf'],['Notion',50,600,'Productivity','Active','#000'],['miscellaneous',500,6000,'Infra','Active','#6b7280'],['Place Holder',300,3505,'Infra','Seasonal','#9ca3af'],['Apollo Api',14,165,'AI/ML','Seasonal','#ff6b35'],['Hostinger',31,367,'Infra','Seasonal','#673de6']];
+  const mc = document.getElementById('matrix-cards');
+  svcs.forEach(([name,mo,yr,cat,status,color]) => {
+    mc.innerHTML += `<div class="matrix-card">
+      <div class="matrix-card-top"><span class="matrix-name">${name}</span><span class="badge ${status==='Active'?'bg':'bo'}" style="font-size:9px">${status}</span></div>
+      <div style="font-size:9px;color:var(--faint);margin-bottom:6px">${cat}</div>
+      <div style="font-size:20px;font-weight:800;color:${color};letter-spacing:-.03em;line-height:1;margin-bottom:2px">$${mo}</div>
+      <div style="font-size:10px;color:var(--faint)">$${yr.toLocaleString()} / year</div>
+      <div style="margin-top:8px;height:3px;background:var(--bg);border-radius:2px"><div style="height:3px;border-radius:2px;background:${color};width:${Math.min(100,yr/6000*100).toFixed(0)}%"></div></div>
+    </div>`;
+  });
+}
+
+// ── INFRA PAGE ─────────────────────────────────────────────────────────────────
+function initInfra() {
+  new Chart(document.getElementById('infra-chart'), {
+    type:'bar', data:{ labels:['Primary Node\n/20','Secondary Pods\n/22','Service Pods\n/24'], datasets:[{ label:'IP Capacity', data:[4096,1024,512], backgroundColor:['rgba(37,99,235,.15)','rgba(234,88,12,.15)','rgba(220,38,38,.15)'], borderColor:['#2563eb','#ea580c','#dc2626'], borderWidth:1.5, borderRadius:5 }] },
+    options:{ responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c=>` ${c.raw.toLocaleString()} IPs` } } }, scales:{ x:noGrid, y:{ ...gridOpts, ticks:{ ...gridOpts.ticks, callback:v=>v.toLocaleString() } } } }
+  });
+}
+
+// ── METRICS PAGE ───────────────────────────────────────────────────────────────
+function initMetrics() {
+  new Chart(document.getElementById('met-annual'), {
+    type:'bar', data:{ labels:['S1 Budget','S2 Actual','S3 Actual','S4 Actual'], datasets:[{ data:[43800,26300,50400,13316], backgroundColor:['rgba(37,99,235,.2)','rgba(22,163,74,.2)','rgba(234,88,12,.2)','rgba(124,58,237,.2)'], borderColor:['#2563eb','#16a34a','#ea580c','#7c3aed'], borderWidth:1.5, borderRadius:6 }] },
+    options:{ responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c=>` $${c.raw.toLocaleString()}/yr` } } }, scales:{ x:noGrid, y:{ ...gridOpts, ticks:{ ...gridOpts.ticks, callback:v=>'$'+v.toLocaleString() } } } }
+  });
+  new Chart(document.getElementById('met-wise'), {
+    type:'line', data:{ labels:MONTHS, datasets:[
+      { label:'2025', data:[0,0,0,1182,2373,0,500,500,3800,4500,5200,6100], borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,.06)', pointRadius:3, tension:.3, fill:true, borderWidth:2 },
+      { label:'2026', data:[0,1800,2900,5700,7000,0,0,0,0,0,0,0], borderColor:'#ea580c', backgroundColor:'rgba(234,88,12,.06)', pointRadius:3, tension:.3, fill:true, borderWidth:2 }
+    ]},
+    options:{ responsive:true, plugins:{ legend:{ position:'top', labels:{ boxWidth:8, usePointStyle:true, pointStyle:'circle', padding:12 } }, tooltip:{ callbacks:{ label:c=>` $${c.raw.toLocaleString()}` } } }, scales:{ x:noGrid, y:{ ...gridOpts, ticks:{ ...gridOpts.ticks, callback:v=>'$'+v.toLocaleString() } } } }
+  });
+  const t = document.getElementById('met-table');
+  MONTHS.forEach((m,i) => {
+    const delta = +(S2[i]-S1[i]).toFixed(0);
+    t.innerHTML += `<tr><td style="font-weight:600">${m}</td><td class="td-mono">$${S1[i].toLocaleString()}</td><td class="td-mono">$${S2[i].toLocaleString()}</td><td class="td-mono">$${S3[i].toLocaleString()}</td><td class="td-mono">$${S4[i].toLocaleString()}</td><td class="td-mono"><span style="color:${delta>0?'#dc2626':'#16a34a'}">${delta>0?'+':''}$${delta}</span></td></tr>`;
+  });
+}
+</script>
+</body>
+</html>
